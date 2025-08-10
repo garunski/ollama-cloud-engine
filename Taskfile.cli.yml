@@ -1,0 +1,122 @@
+version: '3'
+
+tasks:
+  setup:mac:
+    desc: "Install required CLI tools on macOS"
+    silent: true
+    cmds:
+      - brew install awscli || true
+      - brew install opentofu || true
+      - brew install infracost || true
+      - brew install tailscale || true
+
+  tofu:init:
+    desc: "Initialize OpenTofu"
+    silent: true
+    cmds:
+      - tofu init
+
+  tofu:plan:
+    desc: "Create a plan"
+    silent: true
+    cmds:
+      - mkdir -p .tfplan
+      - tofu plan -out .tfplan/plan.tfplan
+
+  tofu:show-json:
+    desc: "Generate plan JSON"
+    silent: true
+    cmds:
+      - tofu show -json .tfplan/plan.tfplan > .tfplan/plan.json
+
+  tofu:apply:
+    desc: "Apply the plan"
+    silent: true
+    cmds:
+      - tofu apply -auto-approve .tfplan/plan.tfplan
+
+  cost:breakdown:
+    desc: "Show cost estimate for the current plan"
+    silent: true
+    cmds:
+      - infracost breakdown --path .tfplan/plan.json
+
+  up:
+    desc: "Provision the stack and show cost estimate"
+    silent: true
+    cmds:
+      - task: tofu:init
+      - task: tofu:plan
+      - task: tofu:show-json
+      - task: tofu:apply
+      - task: cost:breakdown
+
+  down:
+    desc: "Destroy the stack"
+    silent: true
+    cmds:
+      - tofu destroy -auto-approve
+
+  instance:status:
+    desc: "Show the EC2 instance state"
+    silent: true
+    cmds:
+      - |
+        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text
+
+  instance:start:
+    desc: "Start the EC2 instance if it is stopped"
+    silent: true
+    cmds:
+      - |
+        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        STATE=$(aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text)
+        case "$STATE" in \
+          stopped)
+            aws ec2 start-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Starting instance $IID";; \
+          running|pending)
+            echo "Instance $IID is $STATE; no action";; \
+          stopping|shutting-down|terminated)
+            echo "Instance $IID is $STATE; cannot start";; \
+          *)
+            echo "Unknown state: $STATE"; exit 1;; \
+        esac
+
+  instance:stop:
+    desc: "Stop the EC2 instance if it is running"
+    silent: true
+    cmds:
+      - |
+        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        STATE=$(aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text)
+        case "$STATE" in \
+          running)
+            aws ec2 stop-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Stopping instance $IID";; \
+          stopped|stopping)
+            echo "Instance $IID is $STATE; no action";; \
+          pending|shutting-down|terminated)
+            echo "Instance $IID is $STATE; cannot stop";; \
+          *)
+            echo "Unknown state: $STATE"; exit 1;; \
+        esac
+
+

@@ -1,0 +1,241 @@
+version: '3'
+
+vars:
+  TOFU_IMAGE: ghcr.io/opentofu/opentofu:latest
+  INFRACOST_IMAGE: infracost/infracost:ci-latest
+
+tasks:
+  setup:mac:
+    desc: "Install required CLI tools on macOS"
+    silent: true
+    cmds:
+      - brew install tailscale || true
+      - brew install awscli || true
+      - command -v docker >/dev/null 2>&1 || { echo "Docker is required" >&2; exit 1; }
+
+  setup:cli:
+    desc: "Install OpenTofu and Infracost locally on macOS"
+    silent: true
+    cmds:
+      - brew install opentofu || true
+      - brew install infracost || true
+
+  tofu:init:
+    desc: "Initialize OpenTofu"
+    silent: true
+    cmds:
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -e AWS_SDK_LOAD_CONFIG=1 -w /work {{.TOFU_IMAGE}} init
+
+  tofu:init:cli:
+    desc: "Initialize OpenTofu (local CLI)"
+    silent: true
+    cmds:
+      - tofu init
+
+  tofu:plan:
+    desc: "Create a plan"
+    silent: true
+    cmds:
+      - mkdir -p .tfplan
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -e AWS_SDK_LOAD_CONFIG=1 -w /work {{.TOFU_IMAGE}} plan -out .tfplan/plan.tfplan
+
+  tofu:plan:cli:
+    desc: "Create a plan (local CLI)"
+    silent: true
+    cmds:
+      - mkdir -p .tfplan
+      - tofu plan -out .tfplan/plan.tfplan
+
+  tofu:show-json:
+    desc: "Generate plan JSON"
+    silent: true
+    cmds:
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -e AWS_SDK_LOAD_CONFIG=1 -w /work {{.TOFU_IMAGE}} show -json .tfplan/plan.tfplan > .tfplan/plan.json
+
+  tofu:show-json:cli:
+    desc: "Generate plan JSON (local CLI)"
+    silent: true
+    cmds:
+      - tofu show -json .tfplan/plan.tfplan > .tfplan/plan.json
+
+  tofu:apply:
+    desc: "Apply the plan"
+    silent: true
+    cmds:
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -e AWS_SDK_LOAD_CONFIG=1 -w /work {{.TOFU_IMAGE}} apply -auto-approve .tfplan/plan.tfplan
+
+  tofu:apply:cli:
+    desc: "Apply the plan (local CLI)"
+    silent: true
+    cmds:
+      - tofu apply -auto-approve .tfplan/plan.tfplan
+
+  cost:breakdown:
+    desc: "Show cost estimate for the current plan"
+    silent: true
+    cmds:
+      - docker run --rm -v "$PWD:/work" -w /work {{.INFRACOST_IMAGE}} breakdown --path .tfplan/plan.json
+
+  cost:breakdown:cli:
+    desc: "Show cost estimate for the current plan (local CLI)"
+    silent: true
+    cmds:
+      - infracost breakdown --path .tfplan/plan.json
+
+  up:
+    desc: "Provision the stack and show cost estimate"
+    silent: true
+    cmds:
+      - task: tofu:init
+      - task: tofu:plan
+      - task: tofu:show-json
+      - task: tofu:apply
+      - task: cost:breakdown
+
+  up:cli:
+    desc: "Provision the stack and show cost estimate (local CLI)"
+    silent: true
+    cmds:
+      - task: tofu:init:cli
+      - task: tofu:plan:cli
+      - task: tofu:show-json:cli
+      - task: tofu:apply:cli
+      - task: cost:breakdown:cli
+
+  down:
+    desc: "Destroy the stack"
+    silent: true
+    cmds:
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -e AWS_SDK_LOAD_CONFIG=1 -w /work {{.TOFU_IMAGE}} destroy -auto-approve
+
+  down:cli:
+    desc: "Destroy the stack (local CLI)"
+    silent: true
+    cmds:
+      - tofu destroy -auto-approve
+
+  instance:status:
+    desc: "Show the EC2 instance state"
+    silent: true
+    cmds:
+      - |
+        IID=$(docker run --rm -v "$PWD:/work" -w /work {{.TOFU_IMAGE}} output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text
+
+  instance:status:cli:
+    desc: "Show the EC2 instance state (local CLI)"
+    silent: true
+    cmds:
+      - |
+        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text
+
+  instance:start:
+    desc: "Start the EC2 instance if it is stopped"
+    silent: true
+    cmds:
+      - |
+        IID=$(docker run --rm -v "$PWD:/work" -w /work {{.TOFU_IMAGE}} output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        STATE=$(aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text)
+        case "$STATE" in \
+          stopped)
+            aws ec2 start-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Starting instance $IID";; \
+          running|pending)
+            echo "Instance $IID is $STATE; no action";; \
+          stopping|shutting-down|terminated)
+            echo "Instance $IID is $STATE; cannot start";; \
+          *)
+            echo "Unknown state: $STATE"; exit 1;; \
+        esac
+
+  instance:start:cli:
+    desc: "Start the EC2 instance if it is stopped (local CLI)"
+    silent: true
+    cmds:
+      - |
+        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        STATE=$(aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text)
+        case "$STATE" in \
+          stopped)
+            aws ec2 start-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Starting instance $IID";; \
+          running|pending)
+            echo "Instance $IID is $STATE; no action";; \
+          stopping|shutting-down|terminated)
+            echo "Instance $IID is $STATE; cannot start";; \
+          *)
+            echo "Unknown state: $STATE"; exit 1;; \
+        esac
+
+  instance:stop:
+    desc: "Stop the EC2 instance if it is running"
+    silent: true
+    cmds:
+      - |
+        IID=$(docker run --rm -v "$PWD:/work" -w /work {{.TOFU_IMAGE}} output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        STATE=$(aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text)
+        case "$STATE" in \
+          running)
+            aws ec2 stop-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Stopping instance $IID";; \
+          stopped|stopping)
+            echo "Instance $IID is $STATE; no action";; \
+          pending|shutting-down|terminated)
+            echo "Instance $IID is $STATE; cannot stop";; \
+          *)
+            echo "Unknown state: $STATE"; exit 1;; \
+        esac
+
+  instance:stop:cli:
+    desc: "Stop the EC2 instance if it is running (local CLI)"
+    silent: true
+    cmds:
+      - |
+        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
+        STATE=$(aws ec2 describe-instances \
+          --profile ${TF_VAR_aws_profile:-default} \
+          --region ${TF_VAR_aws_region:-us-east-1} \
+          --instance-ids "$IID" \
+          --query 'Reservations[0].Instances[0].State.Name' \
+          --output text)
+        case "$STATE" in \
+          running)
+            aws ec2 stop-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Stopping instance $IID";; \
+          stopped|stopping)
+            echo "Instance $IID is $STATE; no action";; \
+          pending|shutting-down|terminated)
+            echo "Instance $IID is $STATE; cannot stop";; \
+          *)
+            echo "Unknown state: $STATE"; exit 1;; \
+        esac
+
+
