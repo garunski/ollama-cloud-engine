@@ -1,85 +1,132 @@
+<div align="center">
+
 # ollama-cloud-engine
-A minimal, one-environment OpenTofu setup to deploy an Ollama LLM server on AWS with Tailscale-only access and CloudWatch logging. Orchestrate via Task either with a Docker all-in-one image or local CLIs.
 
-## Before you start
-- Access model: SSH is disabled. The instance has no public IP. All access happens over the Tailscale overlay using your ACLs.
-- AWS credentials: Make sure your local AWS CLI is configured in `~/.aws` (profiles, SSO, etc.). Docker workflows mount this directory read-only.
-- Required input: a Tailscale Auth Key (ephemeral recommended), either directly or from AWS SSM Parameter Store.
+Spin up a production-hardened Ollama LLM server on AWS in minutes — Tailscale-only access, zero SSH, clear costs.
 
-Required variables (choose one for Tailscale key):
-- `TF_VAR_tailscale_auth_key`
-- `TF_VAR_tailscale_auth_param_name` (SecureString in SSM)
+[![OpenTofu](https://img.shields.io/badge/IaC-OpenTofu-00B368)](https://opentofu.org) 
+[![AWS](https://img.shields.io/badge/Cloud-AWS-orange)](https://aws.amazon.com) 
+[![Tailscale](https://img.shields.io/badge/Access-Tailscale-28A0F0)](https://tailscale.com) 
+[![Infracost](https://img.shields.io/badge/Cost-Infracost-6E56CF)](https://www.infracost.io)
 
-Optional variables (defaults exist):
-- `TF_VAR_instance_name`, `TF_VAR_aws_region`, `TF_VAR_model_choice`, `TF_VAR_enable_debug`
-- `TF_VAR_aws_profile` (defaults to `default`)
+</div>
 
-Tip (AWS SSO): If you use SSO, run `aws sso login --profile <name>` on your machine first. The Docker workflow will use the cached SSO tokens from `~/.aws`.
+### Key characteristics
+- Tailscale-only access (no SSH, no public IP) for a reduced attack surface.
+- Simple lifecycle via Task: consistent Docker image or local CLI.
+- Cost visibility with an automatic Infracost breakdown of the plan.
+- Minimal, readable OpenTofu layout without modules or multi-env complexity.
 
-## Option A: Docker all-in-one image (recommended for consistency)
-This uses a single Docker image that includes OpenTofu, AWS CLI, Infracost, and Tailscale CLI. Your `~/.aws` directory is mounted in read-only mode.
+### What gets created
+- Dedicated VPC (private subnet, routed egress for package installs)
+- Security Group with no inbound rules (Tailscale overlay only)
+- EC2 instance that installs Ollama, Tailscale, CloudWatch Agent, then pulls a model
+- CloudWatch Log Group for basic observability
+- Infracost cost estimate from the plan JSON
 
-1) Create a `vars.env` file in the repo root with your inputs (one per line):
+---
+
+## Quickstart
+Pick ONE path: Docker (easy/consistent) or Local CLI (fast if you already have tools).
+
+### A) Docker (recommended)
+Requires Docker only. A single tools image includes OpenTofu, AWS CLI, Infracost, and Tailscale CLI. Your `~/.aws` is mounted read-only into the container.
+
+1) Create `vars.env`
+```ini
+TF_VAR_tailscale_auth_key=tskey-...
+TF_VAR_model_choice=codellama:7b-code
+TF_VAR_aws_profile=default                # optional
+TF_VAR_aws_region=us-east-1               # optional
 ```
-TF_VAR_tailscale_auth_key=tskey-...        # or TF_VAR_tailscale_auth_param_name=/path/to/param
-TF_VAR_aws_profile=default                 # optional
-TF_VAR_aws_region=us-east-1                # optional
-```
-2) Build the tools image (first time only):
+
+2) Build tools image (first time)
 ```sh
 task docker:build
 ```
-3) Create the environment and see cost estimate:
+
+3) Create (provisions infra, prints cost)
 ```sh
 task docker:create
 ```
-4) Instance lifecycle:
+
+4) Operate
 ```sh
 task docker:status
 task docker:start
 task docker:stop
 ```
-5) Destroy when finished:
+
+5) Destroy
 ```sh
 task docker:destroy
 ```
 
-## Option B: Local CLI (macOS)
-Use Brew-installed CLIs directly on your machine.
+### B) Local CLI (macOS)
+Use Homebrew-installed CLIs directly.
 
-1) Install tools:
+0) Install tools
 ```sh
 task cli:setup:mac
 ```
-2) Export variables (or put them in `terraform.tfvars`):
+
+1) Set variables (or put in `terraform.tfvars`)
 ```sh
-export TF_VAR_tailscale_auth_key="tskey-..."   # or: export TF_VAR_tailscale_auth_param_name="/path/to/param"
-export TF_VAR_aws_profile="myprofile"          # optional; defaults to 'default'
+export TF_VAR_tailscale_auth_key="tskey-..."
+export TF_VAR_model_choice="codellama:7b-code"
+export TF_VAR_aws_profile="myprofile"          # optional
 ```
-3) Create the environment and see cost estimate:
+
+2) Create (provisions infra, prints cost)
 ```sh
 task cli:create
 ```
-4) Instance lifecycle:
+
+3) Operate
 ```sh
 task cli:status
 task cli:start
 task cli:stop
 ```
-5) Destroy when finished:
+
+4) Destroy
 ```sh
 task cli:destroy
 ```
 
-## What gets created
-- A dedicated VPC with a private subnet and route to the internet via an Internet Gateway (for package installs, etc.)
-- Security Group with no inbound rules (Tailscale-only); egress open by default
-- An EC2 instance that installs Ollama, Tailscale, and CloudWatch Agent, then pulls the selected model
-- CloudWatch Log Group for basic logging
-- Infracost runs against the OpenTofu plan JSON and prints an estimated cost
+---
 
-## Notes
-- Docker tasks read your AWS config from `~/.aws`. No credentials are baked into the image.
-- Tailscale Auth Key can be ephemeral or stored in SSM (recommended to avoid secrets in TF state). If neither is present, provisioning fails early.
+## How it works (at a glance)
+
+```mermaid
+flowchart TD
+  A[Task: create] --> B[OpenTofu init/plan/apply]
+  B --> C[EC2 in private VPC]
+  C --> D[Tailscale up \n (no public IP, no SSH)]
+  C --> E[Ollama service -> CloudWatch logs]
+  B --> F[Infracost on plan JSON]
+```
+
+## Inputs reference
+- Required
+  - `TF_VAR_tailscale_auth_key`: ephemeral key recommended
+  - `TF_VAR_model_choice`: must be one of the allowed values in `variables.tf`
+- Optional
+  - `TF_VAR_aws_profile` (default `default`)
+  - `TF_VAR_aws_region` (default `us-east-1`)
+  - `TF_VAR_instance_name` (default `Ollama-LLM-Server`)
+  - `TF_VAR_enable_debug` (default `false`)
+
+## Security notes
+- No inbound ports. Access via Tailscale overlay only. Keep ACLs tight.
+- No SSH keys or public IPs. For break-glass, consider AWS SSM (easy to add).
+
+## Troubleshooting
+- “No Tailscale key provided”: set `TF_VAR_tailscale_auth_key`.
+- “Instance ID not found”: run create/apply first.
+- AWS SSO: run `aws sso login --profile <name>` locally before Docker tasks.
+
+## License
+Apache-2.0 (see `LICENSE`).
 
 

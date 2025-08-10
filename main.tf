@@ -44,28 +44,32 @@ resource "aws_route_table_association" "ollama_rta" {
   route_table_id = aws_route_table.ollama_rt.id
 }
 
-# Get the latest Ubuntu 22.04 LTS AMI with GPU support
-data "aws_ami" "ubuntu_gpu" {
+# Use an AWS Deep Learning AMI (GPU, Ubuntu 22.04) or override via custom_ami_id
+data "aws_ami" "gpu_dlami" {
   most_recent = true
-  owners      = ["099720109477"]
+  owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+    values = ["Deep Learning AMI GPU *Ubuntu 22.04*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
   }
 
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
   }
+
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
 }
 
-# Optional: fetch Tailscale auth key from SSM to avoid storing secret in TF state
-data "aws_ssm_parameter" "tailscale_auth" {
-  count = var.tailscale_auth_param_name != "" ? 1 : 0
-  name  = var.tailscale_auth_param_name
-  with_decryption = true
-}
 
 # --- Security Group ---
 resource "aws_security_group" "ollama_sg" {
@@ -149,7 +153,7 @@ resource "aws_iam_instance_profile" "ollama_cloudwatch_profile" {
 
 # --- EC2 Instance Resource ---
 resource "aws_instance" "ollama_server" {
-  ami                         = data.aws_ami.ubuntu_gpu.id
+  ami                         = var.custom_ami_id != "" ? var.custom_ami_id : data.aws_ami.gpu_dlami.id
   instance_type               = local.model_configs[var.model_choice].instance_type
   vpc_security_group_ids      = [aws_security_group.ollama_sg.id]
   subnet_id                   = aws_subnet.ollama_subnet.id
@@ -234,10 +238,7 @@ curl -fsSL https://tailscale.com/install.sh | sh
 log "Connecting to Tailscale..."
 TS_AUTH_KEY="${var.tailscale_auth_key}"
 if [ -z "$TS_AUTH_KEY" ]; then
-  TS_AUTH_KEY="${try(data.aws_ssm_parameter.tailscale_auth[0].value, "") }"
-fi
-if [ -z "$TS_AUTH_KEY" ]; then
-  log "ERROR: No Tailscale auth key provided. Set TF_VAR_tailscale_auth_key or tailscale_auth_param_name."
+  log "ERROR: No Tailscale auth key provided. Set TF_VAR_tailscale_auth_key."
   exit 1
 fi
 sudo tailscale up --auth-key="$TS_AUTH_KEY" --hostname=${var.instance_name}

@@ -17,7 +17,6 @@ variable "aws_profile" {
   default     = "default"
 }
 
- 
 
 variable "model_choice" {
   description = "The chosen Ollama model for deployment."
@@ -49,8 +48,8 @@ variable "tailscale_auth_key" {
   default     = ""
 }
 
-variable "tailscale_auth_param_name" {
-  description = "Optional: SSM Parameter Store name that holds the Tailscale auth key (SecureString). If provided, this will be used instead of embedding the key in state."
+variable "custom_ami_id" {
+  description = "Optional: Explicit AMI ID to use for the instance (overrides automatic GPU DLAMI lookup)."
   type        = string
   default     = ""
 }
