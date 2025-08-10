@@ -4,7 +4,6 @@ variable "instance_name" {
   default     = "Ollama-LLM-Server"
 }
 
-
 variable "aws_region" {
   description = "The AWS region to deploy in."
   type        = string
@@ -17,14 +16,13 @@ variable "aws_profile" {
   default     = "default"
 }
 
-
 variable "model_choice" {
   description = "The chosen Ollama model for deployment."
   type        = string
   validation {
     condition = contains([
       "codellama:7b-code",
-      "codellama:13b-code", 
+      "codellama:13b-code",
       "codellama:34b-code",
       "qwen2.5-coder:32b",
       "mistralai/Mistral-7B-Instruct-v0.1",
@@ -33,6 +31,7 @@ variable "model_choice" {
     ], var.model_choice)
     error_message = "Model choice must be one of the supported models."
   }
+  nullable = false
 }
 
 variable "enable_debug" {
@@ -53,7 +52,5 @@ variable "custom_ami_id" {
   type        = string
   default     = ""
 }
-
- 
 
 

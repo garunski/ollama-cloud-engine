@@ -1,6 +1,6 @@
 <div align="center">
 
-# ollama-cloud-engine
+# Ollama Cloud Engine
 
 Spin up a production-hardened Ollama LLM server on AWS in minutes — Tailscale-only access, zero SSH, clear costs.
 
@@ -125,6 +125,23 @@ flowchart TD
 - “No Tailscale key provided”: set `TF_VAR_tailscale_auth_key`.
 - “Instance ID not found”: run create/apply first.
 - AWS SSO: run `aws sso login --profile <name>` locally before Docker tasks.
+
+## Model selection and Cline usage
+- Model choices are aligned with Cline’s Ollama guidance. See: [Cline: Provider Configuration – Ollama](https://docs.cline.bot/provider-config/ollama)
+- Common options for `TF_VAR_model_choice` include:
+  - `codellama:7b-code`, `codellama:13b-code`, `codellama:34b-code`
+  - `qwen2.5-coder:32b`
+  - `mistralai/Mistral-7B-Instruct-v0.1`
+  - `deepseek-coder:6.7b-base`
+  - `llama3:8b-instruct-q5_1`
+
+Using Cline with this deployment:
+- After provisioning, Ollama listens on port 11434 and is reachable over Tailscale.
+- In Cline settings, set:
+  - Provider: “ollama”
+  - Model: the exact value you used for `TF_VAR_model_choice`
+  - Base URL: `http://<your_tailscale_name>:11434` (for example, `http://Ollama-LLM-Server:11434`)
+- To experiment with context window or custom parameters, follow the Cline guide above. 
 
 ## License
 Apache-2.0 (see `LICENSE`).

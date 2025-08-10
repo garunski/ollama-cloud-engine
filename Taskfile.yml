@@ -6,11 +6,11 @@ vars:
 
 includes:
   docker:
-    taskfile: Taskfile.docker.yml
+    taskfile: tasks/Taskfile.docker.yml
     dir: .
     optional: true
   cli:
-    taskfile: Taskfile.cli.yml
+    taskfile: tasks/Taskfile.cli.yml
     dir: .
     optional: true
 
