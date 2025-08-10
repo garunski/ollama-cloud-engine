@@ -4,6 +4,16 @@ vars:
   TOFU_IMAGE: ghcr.io/opentofu/opentofu:latest
   INFRACOST_IMAGE: infracost/infracost:ci-latest
 
+includes:
+  docker:
+    taskfile: Taskfile.docker.yml
+    dir: .
+    optional: true
+  cli:
+    taskfile: Taskfile.cli.yml
+    dir: .
+    optional: true
+
 tasks:
   setup:mac:
     desc: "Install required CLI tools on macOS"
@@ -213,6 +223,8 @@ tasks:
           *)
             echo "Unknown state: $STATE"; exit 1;; \
         esac
+
+
 
   instance:stop:cli:
     desc: "Stop the EC2 instance if it is running (local CLI)"

@@ -41,7 +41,7 @@ tasks:
     cmds:
       - infracost breakdown --path .tfplan/plan.json
 
-  up:
+  create:
     desc: "Provision the stack and show cost estimate"
     silent: true
     cmds:
@@ -51,13 +51,13 @@ tasks:
       - task: tofu:apply
       - task: cost:breakdown
 
-  down:
+  destroy:
     desc: "Destroy the stack"
     silent: true
     cmds:
       - tofu destroy -auto-approve
 
-  instance:status:
+  status:
     desc: "Show the EC2 instance state"
     silent: true
     cmds:
@@ -71,7 +71,7 @@ tasks:
           --query 'Reservations[0].Instances[0].State.Name' \
           --output text
 
-  instance:start:
+  start:
     desc: "Start the EC2 instance if it is stopped"
     silent: true
     cmds:
@@ -95,7 +95,7 @@ tasks:
             echo "Unknown state: $STATE"; exit 1;; \
         esac
 
-  instance:stop:
+  stop:
     desc: "Stop the EC2 instance if it is running"
     silent: true
     cmds:
