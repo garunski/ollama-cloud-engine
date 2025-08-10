@@ -34,7 +34,7 @@ RUN mkdir -p /usr/local/bin/scripts
 RUN cat > /usr/local/bin/scripts/create.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /work
+cd /work/infra
 mkdir -p .tfplan
 tofu init
 tofu plan -out .tfplan/plan.tfplan
@@ -47,7 +47,7 @@ EOS
 RUN cat > /usr/local/bin/scripts/destroy.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /work
+cd /work/infra
 tofu destroy -auto-approve
 EOS
 
@@ -55,7 +55,7 @@ EOS
 RUN cat > /usr/local/bin/scripts/start.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /work
+cd /work/infra
 IID=$(tofu output -raw instance_id 2>/dev/null || true)
 if [ -z "$IID" ]; then echo "Instance ID not found. Apply first."; exit 1; fi
 aws ec2 start-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID"
@@ -65,7 +65,7 @@ EOS
 RUN cat > /usr/local/bin/scripts/stop.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /work
+cd /work/infra
 IID=$(tofu output -raw instance_id 2>/dev/null || true)
 if [ -z "$IID" ]; then echo "Instance ID not found. Apply first."; exit 1; fi
 aws ec2 stop-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID"

@@ -3,9 +3,12 @@ resource "aws_instance" "ollama_server" {
   ami                         = var.custom_ami_id != "" ? var.custom_ami_id : data.aws_ami.gpu_dlami.id
   instance_type               = local.selected_instance_type
   vpc_security_group_ids      = [aws_security_group.ollama_sg.id]
-  subnet_id                   = aws_subnet.ollama_subnet.id
+  subnet_id                   = aws_subnet.private_subnet.id
   iam_instance_profile        = aws_iam_instance_profile.ollama_cloudwatch_profile.name
   associate_public_ip_address = false
+  metadata_options {
+    http_tokens = "required"
+  }
 
   root_block_device {
     volume_size = local.selected_volume_size_gb

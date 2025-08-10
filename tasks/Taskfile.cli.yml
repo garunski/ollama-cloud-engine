@@ -14,32 +14,32 @@ tasks:
     desc: "Initialize OpenTofu"
     silent: true
     cmds:
-      - tofu init
+      - tofu -chdir=infra init
 
   tofu:plan:
     desc: "Create a plan"
     silent: true
     cmds:
-      - mkdir -p .tfplan
-      - tofu plan -out .tfplan/plan.tfplan
+      - mkdir -p infra/.tfplan
+      - tofu -chdir=infra plan -out .tfplan/plan.tfplan
 
   tofu:show-json:
     desc: "Generate plan JSON"
     silent: true
     cmds:
-      - tofu show -json .tfplan/plan.tfplan > .tfplan/plan.json
+      - tofu -chdir=infra show -json .tfplan/plan.tfplan > .tfplan/plan.json
 
   tofu:apply:
     desc: "Apply the plan"
     silent: true
     cmds:
-      - tofu apply -auto-approve .tfplan/plan.tfplan
+      - tofu -chdir=infra apply -auto-approve .tfplan/plan.tfplan
 
   cost:breakdown:
     desc: "Show cost estimate for the current plan"
     silent: true
     cmds:
-      - infracost breakdown --path .tfplan/plan.json
+      - infracost breakdown --path infra/.tfplan/plan.json
 
   create:
     desc: "Provision the stack and show cost estimate"
@@ -62,7 +62,7 @@ tasks:
     silent: true
     cmds:
       - |
-        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        IID=$(tofu -chdir=infra output -raw instance_id 2>/dev/null || true)
         if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
         aws ec2 describe-instances \
           --profile ${TF_VAR_aws_profile:-default} \
@@ -76,7 +76,7 @@ tasks:
     silent: true
     cmds:
       - |
-        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        IID=$(tofu -chdir=infra output -raw instance_id 2>/dev/null || true)
         if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
         STATE=$(aws ec2 describe-instances \
           --profile ${TF_VAR_aws_profile:-default} \
@@ -100,7 +100,7 @@ tasks:
     silent: true
     cmds:
       - |
-        IID=$(tofu output -raw instance_id 2>/dev/null || true)
+        IID=$(tofu -chdir=infra output -raw instance_id 2>/dev/null || true)
         if [ -z "$IID" ]; then echo "Instance ID not found. Have you applied?"; exit 1; fi
         STATE=$(aws ec2 describe-instances \
           --profile ${TF_VAR_aws_profile:-default} \

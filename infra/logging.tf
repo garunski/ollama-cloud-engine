@@ -22,6 +22,15 @@ locals {
               "log_stream_name" = "{instance_id}-cloud-init"
             }
           ]
+        },
+        "journal" = {
+          "collect_list" = [
+            {
+              "service_name"    = "ollama",
+              "log_group_name"  = aws_cloudwatch_log_group.ollama_log_group.name,
+              "log_stream_name" = "{instance_id}-ollama-service"
+            }
+          ]
         }
       }
     }
