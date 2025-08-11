@@ -95,6 +95,12 @@ graph TB
 - [Infracost](https://www.infracost.io/docs/#quick-start) 
 - [OpenTofu](https://opentofu.org/docs/intro/install/)
 
+### EC2 GPU quota requirement
+
+- **What**: To launch GPU instances (G-family), you need vCPU quota in the EC2 quota "Running On-Demand G and VT instances" for your target region.
+- **Minimum to run any supported model (one instance)**: 8 vCPUs. This covers `g5.2xlarge` (8 vCPUs); smaller mappings like `g5.xlarge`/`g6e.xlarge` need 4.
+- **If you see `VcpuLimitExceeded`**: Request a quota increase via the AWS Console (Service Quotas) or submit a request: [EC2 quota increase](https://aws.amazon.com/contact-us/ec2-request).
+
 #### Getting a Tailscale Auth Key
 
 1. **Create an auth key** in your [Tailscale Admin Console](https://login.tailscale.com/admin/settings/keys)

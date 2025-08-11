@@ -1,7 +1,6 @@
 version: '3'
 
-vars:
-  VARS_FILE: vars.env
+dotenv: ['vars.env']
 
 includes:
   docker:
@@ -13,11 +12,4 @@ includes:
     dir: .
     optional: true
 tasks:
-  ensure-vars:
-    desc: "Ensure variables file exists and export variables"
-    silent: true
-    cmds:
-      - test -f {{.VARS_FILE}} || (echo "Create {{.VARS_FILE}} with required variables" && exit 1)
-      - |
-        export $(grep -v '^#' {{.VARS_FILE}} | xargs -I{} echo {})
 
