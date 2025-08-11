@@ -203,7 +203,7 @@ The following models are supported with automatic GPU instance selection:
 
 ## 🔧 Usage with AI Coding Tools
 
-### Cline (Cursor IDE)
+### Cline
 
 After deployment, configure Cline to use your Ollama server:
 
