@@ -95,6 +95,9 @@ resource "google_compute_instance" "ollama" {
     install-nvidia-driver = "true"
   }
 
+  # Manage power state only via desired_status (RUNNING|TERMINATED)
+  desired_status = var.desired_state == "running" ? "RUNNING" : "TERMINATED"
+
   scheduling {
     on_host_maintenance = "TERMINATE"
     automatic_restart   = true

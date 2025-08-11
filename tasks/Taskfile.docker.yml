@@ -17,11 +17,12 @@ tasks:
       - task: build
       - task: :ensure-vars
       - docker run --rm \
-          -e CLOUD={{.CLOUD | default "aws"}} \
+          -e CLOUD \
+          -e GOOGLE_APPLICATION_CREDENTIALS \
+          -e AWS_PROFILE \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
-          -w /work/infra/{{.CLOUD | default "aws"}} \
+          -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} scripts/create.sh
 
   destroy:
@@ -31,11 +32,12 @@ tasks:
       - task: build
       - task: :ensure-vars
       - docker run --rm \
-          -e CLOUD={{.CLOUD | default "aws"}} \
+          -e CLOUD \
+          -e GOOGLE_APPLICATION_CREDENTIALS \
+          -e AWS_PROFILE \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
-          -w /work/infra/{{.CLOUD | default "aws"}} \
+          -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} scripts/destroy.sh
 
   start:
@@ -45,11 +47,12 @@ tasks:
       - task: build
       - task: :ensure-vars
       - docker run --rm \
-          -e CLOUD={{.CLOUD | default "aws"}} \
+          -e CLOUD \
+          -e GOOGLE_APPLICATION_CREDENTIALS \
+          -e AWS_PROFILE \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
-          -w /work/infra/{{.CLOUD | default "aws"}} \
+          -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} scripts/start.sh
 
   stop:
@@ -59,11 +62,12 @@ tasks:
       - task: build
       - task: :ensure-vars
       - docker run --rm \
-          -e CLOUD={{.CLOUD | default "aws"}} \
+          -e CLOUD \
+          -e GOOGLE_APPLICATION_CREDENTIALS \
+          -e AWS_PROFILE \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
-          -w /work/infra/{{.CLOUD | default "aws"}} \
+          -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} scripts/stop.sh
 
 

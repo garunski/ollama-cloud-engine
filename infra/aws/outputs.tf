@@ -33,4 +33,9 @@ output "ssh_command" {
   value       = "SSH disabled; use Tailscale connectivity and ACLs"
 }
 
+output "instance_status" {
+  description = "The current instance power state"
+  value       = lower(data.aws_instance.ollama.instance_state)
+}
+
 

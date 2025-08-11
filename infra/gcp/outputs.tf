@@ -20,4 +20,9 @@ output "instance_name" {
   value       = var.instance_name
 }
 
+output "instance_status" {
+  description = "The current instance power state"
+  value       = lower(google_compute_instance.ollama.current_status)
+}
+
 

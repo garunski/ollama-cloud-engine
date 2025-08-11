@@ -52,3 +52,13 @@ variable "custom_ami_id" {
   type        = string
   default     = ""
 }
+
+variable "desired_state" {
+  description = "Desired instance state: running or stopped"
+  type        = string
+  default     = "running"
+  validation {
+    condition     = contains(["running", "stopped"], var.desired_state)
+    error_message = "desired_state must be 'running' or 'stopped'"
+  }
+}
