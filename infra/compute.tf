@@ -83,13 +83,12 @@ fi
 log "Installing Tailscale..."
 curl -fsSL https://tailscale.com/install.sh | sh
 
-log "Connecting to Tailscale..."
-TS_AUTH_KEY="${var.tailscale_auth_key}"
-if [ -z "$TS_AUTH_KEY" ]; then
-  log "ERROR: No Tailscale auth key provided. Set TF_VAR_tailscale_auth_key."
-  exit 1
-fi
-sudo tailscale up --auth-key="$TS_AUTH_KEY" --hostname=${var.instance_name}
+  log "Connecting to Tailscale..."
+  if [ -z "${var.tailscale_auth_key}" ]; then
+    log "ERROR: No Tailscale auth key provided. Set TF_VAR_tailscale_auth_key."
+    exit 1
+  fi
+  sudo tailscale up --auth-key="${var.tailscale_auth_key}" --hostname=${var.instance_name}
 
 if [ $? -ne 0 ]; then
   log "ERROR: Tailscale authentication failed"

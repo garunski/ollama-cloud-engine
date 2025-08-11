@@ -1,149 +1,228 @@
+# 🦙 Ollama Cloud Engine
+
+> **Production-ready Ollama LLM deployment on AWS with zero-trust networking**
+
+Deploy a secure, scalable Ollama server on AWS in minutes. Features Tailscale-only access, automatic cost tracking, and enterprise-grade security — perfect for AI development teams who need reliable LLM infrastructure.
+
 <div align="center">
 
-# Ollama Cloud Engine
-
-Spin up a production-hardened Ollama LLM server on AWS in minutes — Tailscale-only access, zero SSH, clear costs.
-
-[![OpenTofu](https://img.shields.io/badge/IaC-OpenTofu-00B368)](https://opentofu.org) 
-[![AWS](https://img.shields.io/badge/Cloud-AWS-orange)](https://aws.amazon.com) 
-[![Tailscale](https://img.shields.io/badge/Access-Tailscale-28A0F0)](https://tailscale.com) 
-[![Infracost](https://img.shields.io/badge/Cost-Infracost-6E56CF)](https://www.infracost.io)
+[![OpenTofu](https://img.shields.io/badge/IaC-OpenTofu-00B368?style=flat-square)](https://opentofu.org) 
+[![AWS](https://img.shields.io/badge/Cloud-AWS-FF9900?style=flat-square)](https://aws.amazon.com) 
+[![Tailscale](https://img.shields.io/badge/VPN-Tailscale-28A0F0?style=flat-square)](https://tailscale.com) 
+[![Infracost](https://img.shields.io/badge/Cost-Infracost-6E56CF?style=flat-square)](https://www.infracost.io)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square)](LICENSE)
 
 </div>
 
-### Key characteristics
-- Tailscale-only access (no SSH, no public IP) for a reduced attack surface.
-- Simple lifecycle via Task: consistent Docker image or local CLI.
-- Cost visibility with an automatic Infracost breakdown of the plan.
-- Minimal, readable OpenTofu layout without modules or multi-env complexity.
+## ✨ Features
 
-### What gets created
-- Dedicated VPC (private subnet, routed egress for package installs)
-- Security Group with no inbound rules (Tailscale overlay only)
-- EC2 instance that installs Ollama, Tailscale, CloudWatch Agent, then pulls a model
-- CloudWatch Log Group for basic observability
-- Infracost cost estimate from the plan JSON
+- **🔒 Zero-Trust Security**: Tailscale mesh VPN with no SSH or public IPs
+- **⚡ One-Command Deployment**: Single command from development to production
+- **💰 Cost Transparency**: Automatic infrastructure cost estimation with Infracost
+- **🎯 AI-Optimized**: Pre-configured GPU instances for optimal LLM performance
+- **📊 Enterprise Monitoring**: CloudWatch integration for logs and metrics
+- **🔧 Developer-Friendly**: Choice of Docker or native CLI workflows
 
----
-
-## Quickstart
-Pick ONE path: Docker (easy/consistent) or Local CLI (fast if you already have tools).
-
-### A) Docker (recommended)
-Requires Docker only. A single tools image includes OpenTofu, AWS CLI, Infracost, and Tailscale CLI. Your `~/.aws` is mounted read-only into the container.
-
-1) Create `vars.env`
-```ini
-TF_VAR_tailscale_auth_key=tskey-...
-TF_VAR_model_choice=codellama:7b-code
-TF_VAR_aws_profile=default                # optional
-TF_VAR_aws_region=us-east-1               # optional
-```
-
-2) Build tools image (first time)
-```sh
-task docker:build
-```
-
-3) Create (provisions infra, prints cost)
-```sh
-task docker:create
-```
-
-4) Operate
-```sh
-task docker:status
-task docker:start
-task docker:stop
-```
-
-5) Destroy
-```sh
-task docker:destroy
-```
-
-### B) Local CLI (macOS)
-Use Homebrew-installed CLIs directly.
-
-0) Install tools
-```sh
-task cli:setup:mac
-```
-
-1) Set variables (or put in `terraform.tfvars`)
-```sh
-export TF_VAR_tailscale_auth_key="tskey-..."
-export TF_VAR_model_choice="codellama:7b-code"
-export TF_VAR_aws_profile="myprofile"          # optional
-```
-
-2) Create (provisions infra, prints cost)
-```sh
-task cli:create
-```
-
-3) Operate
-```sh
-task cli:status
-task cli:start
-task cli:stop
-```
-
-4) Destroy
-```sh
-task cli:destroy
-```
-
----
-
-## How it works (at a glance)
+## 🏗️ Architecture
 
 ```mermaid
-flowchart TD
-  A[Task: create] --> B[OpenTofu init/plan/apply]
-  B --> C[EC2 in private VPC]
-  C --> D[Tailscale up \n (no public IP, no SSH)]
-  C --> E[Ollama service -> CloudWatch logs]
-  B --> F[Infracost on plan JSON]
+graph TB
+    subgraph "Developer Environment"
+        DEV["👨‍💻 Developer Machine"]
+        CLINE["🔧 Cline/Cursor IDE"]
+        TOOLS["⚡ Local Tools"]
+    end
+
+    subgraph "Tailscale Mesh Network"
+        TS["🔒 Tailscale VPN<br/>Zero-Trust Auth<br/>WireGuard Encrypted"]
+    end
+
+    subgraph "AWS Cloud (us-east-1)"
+        subgraph "VPC (10.42.0.0/16)"
+            subgraph "Public Subnet (10.42.0.0/24)"
+                NAT["🌐 NAT Gateway"]
+                IGW["📡 Internet Gateway"]
+            end
+            
+            subgraph "Private Subnet (10.42.1.0/24)"
+                EC2["🦙 Ollama Server<br/>GPU Optimized<br/>No Public IP"]
+                SG["🛡️ Security Group<br/>Zero Inbound Rules"]
+            end
+        end
+        
+        subgraph "Monitoring"
+            CW["📊 CloudWatch<br/>Logs & Metrics"]
+        end
+        
+        subgraph "Storage"
+            EBS["💾 Encrypted EBS<br/>Model Storage"]
+        end
+    end
+
+    DEV --> TS
+    CLINE --> TS
+    TOOLS --> TS
+    TS -.->|"Encrypted Tunnel"| EC2
+    EC2 --> NAT
+    NAT --> IGW
+    EC2 --> CW
+    EC2 --> EBS
+    SG --> EC2
 ```
 
-## Inputs reference
-- Required
-  - `TF_VAR_tailscale_auth_key`: ephemeral key recommended
-  - `TF_VAR_model_choice`: must be one of the allowed values in `variables.tf`
-- Optional
-  - `TF_VAR_aws_profile` (default `default`)
-  - `TF_VAR_aws_region` (default `us-east-1`)
-  - `TF_VAR_instance_name` (default `Ollama-LLM-Server`)
-  - `TF_VAR_enable_debug` (default `false`)
+**What gets deployed:**
+- **VPC**: Dedicated network (10.42.0.0/16) with public/private subnets
+- **Security**: Zero inbound rules, Tailscale-only access
+- **Compute**: GPU-optimized EC2 with automatic model selection
+- **Storage**: Encrypted EBS volumes sized per model requirements
+- **Monitoring**: CloudWatch logs and metrics collection
+- **Networking**: NAT Gateway for outbound connectivity (model downloads)
 
-## Security notes
-- No inbound ports. Access via Tailscale overlay only. Keep ACLs tight.
-- No SSH keys or public IPs. For break-glass, consider AWS SSM (easy to add).
+## 🚀 Quick Start
 
-## Troubleshooting
-- “No Tailscale key provided”: set `TF_VAR_tailscale_auth_key`.
-- “Instance ID not found”: run create/apply first.
-- AWS SSO: run `aws sso login --profile <name>` locally before Docker tasks.
+### Prerequisites
 
-## Model selection and Cline usage
-- Model choices are aligned with Cline’s Ollama guidance. See: [Cline: Provider Configuration – Ollama](https://docs.cline.bot/provider-config/ollama)
-- Common options for `TF_VAR_model_choice` include:
-  - `codellama:7b-code`, `codellama:13b-code`, `codellama:34b-code`
-  - `qwen2.5-coder:32b`
-  - `mistralai/Mistral-7B-Instruct-v0.1`
-  - `deepseek-coder:6.7b-base`
-  - `llama3:8b-instruct-q5_1`
+**Required for all setups:**
+- [Task](https://taskfile.dev) (for task execution)
+- [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate permissions
+- [Tailscale](https://tailscale.com) account and auth key
 
-Using Cline with this deployment:
-- After provisioning, Ollama listens on port 11434 and is reachable over Tailscale.
-- In Cline settings, set:
-  - Provider: “ollama”
-  - Model: the exact value you used for `TF_VAR_model_choice`
-  - Base URL: `http://<your_tailscale_name>:11434` (for example, `http://Ollama-LLM-Server:11434`)
-- To experiment with context window or custom parameters, follow the Cline guide above. 
+**Choose one of the following:**
 
-## License
-Apache-2.0 (see `LICENSE`).
+**Option A: Docker**
+- Docker or Docker-compatible container runtime (Podman, Colima, etc.)
+- Ensure the `docker` command is available in your PATH
 
+**Option B: Local CLI Tools**
+- [Infracost](https://www.infracost.io/docs/#quick-start) 
+- [OpenTofu](https://opentofu.org/docs/intro/install/)
 
+#### Getting a Tailscale Auth Key
+
+1. **Create an auth key** in your [Tailscale Admin Console](https://login.tailscale.com/admin/settings/keys)
+2. **Click "Generate auth key"** and configure:
+   - **Description**: "Ollama Cloud Engine" (or your preference)
+   - ✅ **Reusable**: Enable for multiple deployments
+   - ✅ **Ephemeral**: Node auto-removes when disconnected
+   - **Expiry**: Set to match your project timeline
+   - **Tags**: Optional, for access control policies
+3. **Copy the key** - it starts with `tskey-`
+
+> 📖 **Documentation**: [Tailscale Auth Keys Guide](https://tailscale.com/kb/1085/auth-keys)  
+> ⏰ **Key Expiry**: Auth keys can be set to expire. When yours expires, generate a new one and redeploy with the updated `TF_VAR_tailscale_auth_key`. See [Key expiry details](https://tailscale.com/kb/1028/key-expiry)
+
+### Option A: Docker Workflow
+
+1. **Create configuration file**
+   ```bash
+   # vars.env
+   TF_VAR_tailscale_auth_key=tskey-auth-xxxxx-xxxxxxxxxxxxxxxxx  # required
+   TF_VAR_model_choice=codellama:7b-code  # required
+   TF_VAR_aws_profile=default  # optional
+   TF_VAR_aws_region=us-east-1  # optional
+   TF_VAR_instance_name=Ollama-LLM-Server  # optional
+   TF_VAR_enable_debug=false  # optional
+   TF_VAR_custom_ami_id=ami-xxxxxxxxxxxxxxxxx  # optional
+   ```
+
+2. **Deploy infrastructure**
+   ```bash
+   task docker:create
+   ```
+
+3. **Manage your deployment**
+   ```bash
+   # Check instance status
+   task docker:status
+   
+   # Start/stop instance (cost optimization)
+   task docker:start
+   task docker:stop
+   
+   # Destroy when done
+   task docker:destroy
+   ```
+
+### Option B: Local CLI Workflow
+
+1. **Install dependencies (macOS)**
+   ```bash
+   task cli:setup:mac
+   ```
+
+2. **Set environment variables**
+   ```bash
+   export TF_VAR_tailscale_auth_key="tskey-auth-xxxxx-xxxxxxxxxxxxxxxxx"  # required
+   export TF_VAR_model_choice="codellama:7b-code"  # required
+   export TF_VAR_aws_profile="default"  # optional
+   export TF_VAR_aws_region="us-east-1"  # optional
+   export TF_VAR_instance_name="Ollama-LLM-Server"  # optional
+   export TF_VAR_enable_debug="false"  # optional
+   export TF_VAR_custom_ami_id="ami-xxxxxxxxxxxxxxxxx"  # optional
+   ```
+
+3. **Deploy and manage**
+   ```bash
+   # Deploy infrastructure
+   task cli:create
+   
+   # Manage deployment
+   task cli:status
+   task cli:start
+   task cli:stop
+   task cli:destroy
+   ```
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create a `vars.env` file or set environment variables:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `TF_VAR_tailscale_auth_key` | **Yes** | - | Tailscale authentication key |
+| `TF_VAR_model_choice` | **Yes** | - | Ollama model to deploy (see [supported models](#supported-models)) |
+| `TF_VAR_aws_profile` | No | `default` | AWS CLI profile name |
+| `TF_VAR_aws_region` | No | `us-east-1` | AWS deployment region |
+| `TF_VAR_instance_name` | No | `Ollama-LLM-Server` | EC2 instance and Tailscale hostname |
+| `TF_VAR_enable_debug` | No | `false` | Enable debug logging for Ollama |
+| `TF_VAR_custom_ami_id` | No | - | Override automatic GPU DLAMI selection |
+
+### Supported Models
+
+The following models are supported with automatic GPU instance selection:
+
+| Model | Instance Type | Storage | Use Case |
+|-------|---------------|---------|----------|
+| `codellama:7b-code` | g5.xlarge | 100GB | Code completion, small projects |
+| `codellama:13b-code` | g5.2xlarge | 150GB | Advanced code generation |
+| `codellama:34b-code` | g6e.xlarge | 200GB | Complex code analysis |
+| `qwen2.5-coder:32b` | g6e.xlarge | 200GB | Multilingual code generation |
+| `mistralai/Mistral-7B-Instruct-v0.1` | g5.xlarge | 100GB | General instruction following |
+| `deepseek-coder:6.7b-base` | g5.xlarge | 100GB | Code understanding |
+| `llama3:8b-instruct-q5_1` | g5.xlarge | 100GB | General purpose, quantized |
+
+## 🔧 Usage with AI Coding Tools
+
+### Cline (Cursor IDE)
+
+After deployment, configure Cline to use your Ollama server:
+
+1. **Get your Tailscale URL** (from deployment output):
+   ```
+   http://Ollama-LLM-Server:11434
+   ```
+
+2. **Configure Cline**:
+   - Provider: `ollama`
+   - Model: Your `TF_VAR_model_choice` value
+   - Base URL: `http://Ollama-LLM-Server:11434`
+
+### Other Tools
+
+The Ollama API is compatible with:
+- **Continue.dev**: VS Code/JetBrains plugin
+- **Open WebUI**: Web-based interface
+- **LangChain**: Python/JS framework
+- **Custom applications**: Standard OpenAI-compatible API
