@@ -16,7 +16,13 @@ tasks:
     cmds:
       - task: build
       - task: :ensure-vars
-      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/create.sh
+      - docker run --rm \
+          -e CLOUD={{.CLOUD | default "aws"}} \
+          -v "$PWD:/work" \
+          -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
+          -w /work/infra/{{.CLOUD | default "aws"}} \
+          {{.IMAGE_NAME}} scripts/create.sh
 
   destroy:
     desc: "Destroy using the tools image"
@@ -24,7 +30,13 @@ tasks:
     cmds:
       - task: build
       - task: :ensure-vars
-      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/destroy.sh
+      - docker run --rm \
+          -e CLOUD={{.CLOUD | default "aws"}} \
+          -v "$PWD:/work" \
+          -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
+          -w /work/infra/{{.CLOUD | default "aws"}} \
+          {{.IMAGE_NAME}} scripts/destroy.sh
 
   start:
     desc: "Start the instance if stopped"
@@ -32,7 +44,13 @@ tasks:
     cmds:
       - task: build
       - task: :ensure-vars
-      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/start.sh
+      - docker run --rm \
+          -e CLOUD={{.CLOUD | default "aws"}} \
+          -v "$PWD:/work" \
+          -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
+          -w /work/infra/{{.CLOUD | default "aws"}} \
+          {{.IMAGE_NAME}} scripts/start.sh
 
   stop:
     desc: "Stop the instance if running"
@@ -40,6 +58,12 @@ tasks:
     cmds:
       - task: build
       - task: :ensure-vars
-      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/stop.sh
+      - docker run --rm \
+          -e CLOUD={{.CLOUD | default "aws"}} \
+          -v "$PWD:/work" \
+          -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
+          -w /work/infra/{{.CLOUD | default "aws"}} \
+          {{.IMAGE_NAME}} scripts/stop.sh
 
 

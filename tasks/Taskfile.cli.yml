@@ -9,18 +9,19 @@ tasks:
       - brew install opentofu || true
       - brew install infracost || true
       - brew install tailscale || true
+      - brew install google-cloud-sdk || true
 
   tofu:init:
     desc: "Initialize OpenTofu"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - tofu init
 
   tofu:plan:
     desc: "Create a plan"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - mkdir -p .tfplan
       - tofu plan -out .tfplan/plan.tfplan
@@ -28,21 +29,21 @@ tasks:
   tofu:show-json:
     desc: "Generate plan JSON"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - tofu show -json .tfplan/plan.tfplan > .tfplan/plan.json
 
   tofu:apply:
     desc: "Apply the plan"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - tofu apply -auto-approve .tfplan/plan.tfplan
 
   cost:breakdown:
     desc: "Show cost estimate for the current plan"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - infracost breakdown --path .tfplan/plan.json
 
@@ -59,82 +60,112 @@ tasks:
   destroy:
     desc: "Destroy the stack"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - tofu destroy -auto-approve
 
   status:
-    desc: "Show the EC2 instance state"
+    desc: "Show the instance state"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - |
-        IID=$(tofu output -json instance_id 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
-        if [ -z "$IID" ] || [ "$IID" = "null" ]; then
-          echo "Instance ID not found. Have you applied the infrastructure?"
-          exit 1
+        if [ "{{.CLOUD | default "aws"}}" = "gcp" ]; then
+          NAME=$(tofu output -json instance_name 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
+          ZONE=${TF_VAR_gcp_zone:-"${TF_VAR_gcp_region:-us-central1}-a"}
+          if [ -z "$NAME" ] || [ "$NAME" = "null" ]; then
+            echo "Instance name not found. Have you applied the infrastructure?"
+            exit 1
+          fi
+          gcloud compute instances describe "$NAME" --zone "$ZONE" --format 'value(status)' | tr '[:upper:]' '[:lower:]'
+        else
+          IID=$(tofu output -json instance_id 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
+          if [ -z "$IID" ] || [ "$IID" = "null" ]; then
+            echo "Instance ID not found. Have you applied the infrastructure?"
+            exit 1
+          fi
+          aws ec2 describe-instances \
+            --profile ${TF_VAR_aws_profile:-garunski} \
+            --region ${TF_VAR_aws_region:-us-east-1} \
+            --instance-ids "$IID" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text
         fi
-        aws ec2 describe-instances \
-          --profile ${TF_VAR_aws_profile:-default} \
-          --region ${TF_VAR_aws_region:-us-east-1} \
-          --instance-ids "$IID" \
-          --query 'Reservations[0].Instances[0].State.Name' \
-          --output text
 
   start:
-    desc: "Start the EC2 instance if it is stopped"
+    desc: "Start the instance if it is stopped"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - |
-        IID=$(tofu output -json instance_id 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
-        if [ -z "$IID" ] || [ "$IID" = "null" ]; then
-          echo "Instance ID not found. Have you applied the infrastructure?"
-          exit 1
+        if [ "{{.CLOUD | default "aws"}}" = "gcp" ]; then
+          NAME=$(tofu output -json instance_name 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
+          ZONE=${TF_VAR_gcp_zone:-"${TF_VAR_gcp_region:-us-central1}-a"}
+          if [ -z "$NAME" ] || [ "$NAME" = "null" ]; then
+            echo "Instance name not found. Have you applied the infrastructure?"
+            exit 1
+          fi
+          gcloud compute instances start "$NAME" --zone "$ZONE" >/dev/null && echo "Starting instance $NAME"
+        else
+          IID=$(tofu output -json instance_id 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
+          if [ -z "$IID" ] || [ "$IID" = "null" ]; then
+            echo "Instance ID not found. Have you applied the infrastructure?"
+            exit 1
+          fi
+          STATE=$(aws ec2 describe-instances \
+            --profile ${TF_VAR_aws_profile:-garunski} \
+            --region ${TF_VAR_aws_region:-us-east-1} \
+            --instance-ids "$IID" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text)
+          case "$STATE" in \
+            stopped)
+              aws ec2 start-instances --profile ${TF_VAR_aws_profile:-garunski} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Starting instance $IID";; \
+            running|pending)
+              echo "Instance $IID is $STATE; no action";; \
+            stopping|shutting-down|terminated)
+              echo "Instance $IID is $STATE; cannot start";; \
+            *)
+              echo "Unknown state: $STATE"; exit 1;; \
+          esac
         fi
-        STATE=$(aws ec2 describe-instances \
-          --profile ${TF_VAR_aws_profile:-default} \
-          --region ${TF_VAR_aws_region:-us-east-1} \
-          --instance-ids "$IID" \
-          --query 'Reservations[0].Instances[0].State.Name' \
-          --output text)
-        case "$STATE" in \
-          stopped)
-            aws ec2 start-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Starting instance $IID";; \
-          running|pending)
-            echo "Instance $IID is $STATE; no action";; \
-          stopping|shutting-down|terminated)
-            echo "Instance $IID is $STATE; cannot start";; \
-          *)
-            echo "Unknown state: $STATE"; exit 1;; \
-        esac
 
   stop:
-    desc: "Stop the EC2 instance if it is running"
+    desc: "Stop the instance if it is running"
     silent: true
-    dir: infra
+    dir: infra/{{.CLOUD | default "aws"}}
     cmds:
       - |
-        IID=$(tofu output -json instance_id 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
-        if [ -z "$IID" ] || [ "$IID" = "null" ]; then
-          echo "Instance ID not found. Have you applied the infrastructure?"
-          exit 1
+        if [ "{{.CLOUD | default "aws"}}" = "gcp" ]; then
+          NAME=$(tofu output -json instance_name 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
+          ZONE=${TF_VAR_gcp_zone:-"${TF_VAR_gcp_region:-us-central1}-a"}
+          if [ -z "$NAME" ] || [ "$NAME" = "null" ]; then
+            echo "Instance name not found. Have you applied the infrastructure?"
+            exit 1
+          fi
+          gcloud compute instances stop "$NAME" --zone "$ZONE" >/dev/null && echo "Stopping instance $NAME"
+        else
+          IID=$(tofu output -json instance_id 2>/dev/null | jq -r '.' 2>/dev/null || echo "")
+          if [ -z "$IID" ] || [ "$IID" = "null" ]; then
+            echo "Instance ID not found. Have you applied the infrastructure?"
+            exit 1
+          fi
+          STATE=$(aws ec2 describe-instances \
+            --profile ${TF_VAR_aws_profile:-default} \
+            --region ${TF_VAR_aws_region:-us-east-1} \
+            --instance-ids "$IID" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text)
+          case "$STATE" in \
+            running)
+              aws ec2 stop-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Stopping instance $IID";; \
+            stopped|stopping)
+              echo "Instance $IID is $STATE; no action";; \
+            pending|shutting-down|terminated)
+              echo "Instance $IID is $STATE; cannot stop";; \
+            *)
+              echo "Unknown state: $STATE"; exit 1;; \
+          esac
         fi
-        STATE=$(aws ec2 describe-instances \
-          --profile ${TF_VAR_aws_profile:-default} \
-          --region ${TF_VAR_aws_region:-us-east-1} \
-          --instance-ids "$IID" \
-          --query 'Reservations[0].Instances[0].State.Name' \
-          --output text)
-        case "$STATE" in \
-          running)
-            aws ec2 stop-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID" >/dev/null && echo "Stopping instance $IID";; \
-          stopped|stopping)
-            echo "Instance $IID is $STATE; no action";; \
-          pending|shutting-down|terminated)
-            echo "Instance $IID is $STATE; cannot stop";; \
-          *)
-            echo "Unknown state: $STATE"; exit 1;; \
-        esac
 
 

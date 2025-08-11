@@ -2,6 +2,7 @@ FROM debian:bookworm-slim
 
 ARG AWSCLI_VERSION=2.15.59
 ARG TOFU_VERSION=1.7.0
+ARG GCLOUD_VERSION=462.0.0
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/usr/local/bin:$PATH \
@@ -13,6 +14,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        ca-certificates curl unzip gnupg lsb-release bash git jq \
        tailscale \
+       apt-transport-https \
     && rm -rf /var/lib/apt/lists/*
 
 # Install AWS CLI v2
@@ -27,6 +29,13 @@ RUN curl -fsSL https://get.opentofu.org/install-opentofu.sh | TOFU_VERSION=${TOF
 # Install Infracost
 RUN curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
 
+# Install Google Cloud SDK (gcloud)
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && apt-get update \
+    && apt-get install -y google-cloud-sdk=${GCLOUD_VERSION}-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Helper scripts
 RUN mkdir -p /usr/local/bin/scripts
 
@@ -34,7 +43,6 @@ RUN mkdir -p /usr/local/bin/scripts
 RUN cat > /usr/local/bin/scripts/create.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /work/infra
 mkdir -p .tfplan
 tofu init
 tofu plan -out .tfplan/plan.tfplan
@@ -47,7 +55,6 @@ EOS
 RUN cat > /usr/local/bin/scripts/destroy.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /work/infra
 tofu destroy -auto-approve
 EOS
 
@@ -55,20 +62,32 @@ EOS
 RUN cat > /usr/local/bin/scripts/start.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /work/infra
-IID=$(tofu output -raw instance_id 2>/dev/null || true)
-if [ -z "$IID" ]; then echo "Instance ID not found. Apply first."; exit 1; fi
-aws ec2 start-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID"
+if [ "$CLOUD" = "gcp" ]; then
+  NAME=$(tofu output -raw instance_name 2>/dev/null || true)
+  ZONE=${TF_VAR_gcp_zone:-"${TF_VAR_gcp_region:-us-central1}-a"}
+  if [ -z "$NAME" ]; then echo "Instance name not found. Apply first."; exit 1; fi
+  gcloud compute instances start "$NAME" --zone "$ZONE"
+else
+  IID=$(tofu output -raw instance_id 2>/dev/null || true)
+  if [ -z "$IID" ]; then echo "Instance ID not found. Apply first."; exit 1; fi
+  aws ec2 start-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID"
+fi
 EOS
 
 # Script: stop
 RUN cat > /usr/local/bin/scripts/stop.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /work/infra
-IID=$(tofu output -raw instance_id 2>/dev/null || true)
-if [ -z "$IID" ]; then echo "Instance ID not found. Apply first."; exit 1; fi
-aws ec2 stop-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID"
+if [ "$CLOUD" = "gcp" ]; then
+  NAME=$(tofu output -raw instance_name 2>/dev/null || true)
+  ZONE=${TF_VAR_gcp_zone:-"${TF_VAR_gcp_region:-us-central1}-a"}
+  if [ -z "$NAME" ]; then echo "Instance name not found. Apply first."; exit 1; fi
+  gcloud compute instances stop "$NAME" --zone "$ZONE"
+else
+  IID=$(tofu output -raw instance_id 2>/dev/null || true)
+  if [ -z "$IID" ]; then echo "Instance ID not found. Apply first."; exit 1; fi
+  aws ec2 stop-instances --profile ${TF_VAR_aws_profile:-default} --region ${TF_VAR_aws_region:-us-east-1} --instance-ids "$IID"
+fi
 EOS
 
 RUN chmod +x /usr/local/bin/scripts/*.sh
