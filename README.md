@@ -1,8 +1,6 @@
 # 🦙 Ollama Cloud Engine
 
-> **Production-ready Ollama LLM deployment on AWS with zero-trust networking**
-
-Deploy a secure, scalable Ollama server on AWS in minutes. Features Tailscale-only access, automatic cost tracking, and enterprise-grade security — perfect for AI development teams who need reliable LLM infrastructure.
+Deploy a secure, scalable Ollama server on AWS in minutes. Features Tailscale-only access, automatic cost tracking, and enterprise-grade security.
 
 <div align="center">
 
@@ -17,7 +15,7 @@ Deploy a secure, scalable Ollama server on AWS in minutes. Features Tailscale-on
 ## ✨ Features
 
 - **🔒 Zero-Trust Security**: Tailscale mesh VPN with no SSH or public IPs
-- **⚡ One-Command Deployment**: Single command from development to production
+- **⚡ One-Command Deployment**: Single command
 - **💰 Cost Transparency**: Automatic infrastructure cost estimation with Infracost
 - **🎯 AI-Optimized**: Pre-configured GPU instances for optimal LLM performance
 - **📊 Enterprise Monitoring**: CloudWatch integration for logs and metrics
@@ -109,7 +107,7 @@ graph TB
 3. **Copy the key** - it starts with `tskey-`
 
 > 📖 **Documentation**: [Tailscale Auth Keys Guide](https://tailscale.com/kb/1085/auth-keys)  
-> ⏰ **Key Expiry**: Auth keys can be set to expire. When yours expires, generate a new one and redeploy with the updated `TF_VAR_tailscale_auth_key`. See [Key expiry details](https://tailscale.com/kb/1028/key-expiry)
+> ⏰ **Key Expiry**: See [Key expiry details](https://tailscale.com/kb/1028/key-expiry)
 
 ### Option A: Docker Workflow
 
