@@ -2,7 +2,6 @@ version: '3'
 
 vars:
   IMAGE_NAME: ollama-tools:latest
-  VARS_FILE: vars.env
 
 tasks:
   build:
@@ -11,54 +10,36 @@ tasks:
     cmds:
       - docker build -t {{.IMAGE_NAME}} -f Dockerfile .
 
-  ensure-vars:
-    desc: "Ensure variables file exists"
-    silent: true
-    cmds:
-      - test -f {{.VARS_FILE}} || (echo "Create {{.VARS_FILE}} with required variables" && exit 1)
-
   create:
     desc: "Create (init, plan, apply, cost) using the tools image"
     silent: true
     cmds:
       - task: build
-      - task: ensure-vars
-      - |
-        set -e
-        export $(grep -v '^#' {{.VARS_FILE}} | xargs -I{} echo {})
-        docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/create.sh
+      - task: :ensure-vars
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/create.sh
 
   destroy:
     desc: "Destroy using the tools image"
     silent: true
     cmds:
       - task: build
-      - task: ensure-vars
-      - |
-        set -e
-        export $(grep -v '^#' {{.VARS_FILE}} | xargs -I{} echo {})
-        docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/destroy.sh
+      - task: :ensure-vars
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/destroy.sh
 
   start:
     desc: "Start the instance if stopped"
     silent: true
     cmds:
       - task: build
-      - task: ensure-vars
-      - |
-        set -e
-        export $(grep -v '^#' {{.VARS_FILE}} | xargs -I{} echo {})
-        docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/start.sh
+      - task: :ensure-vars
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/start.sh
 
   stop:
     desc: "Stop the instance if running"
     silent: true
     cmds:
       - task: build
-      - task: ensure-vars
-      - |
-        set -e
-        export $(grep -v '^#' {{.VARS_FILE}} | xargs -I{} echo {})
-        docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/stop.sh
+      - task: :ensure-vars
+      - docker run --rm -v "$PWD:/work" -v "$HOME/.aws:/root/.aws:ro" -w /work/infra {{.IMAGE_NAME}} scripts/stop.sh
 
 

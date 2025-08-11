@@ -52,5 +52,3 @@ variable "custom_ami_id" {
   type        = string
   default     = ""
 }
-
-

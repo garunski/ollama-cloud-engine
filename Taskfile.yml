@@ -1,5 +1,8 @@
 version: '3'
 
+vars:
+  VARS_FILE: vars.env
+
 includes:
   docker:
     taskfile: tasks/Taskfile.docker.yml
@@ -9,3 +12,12 @@ includes:
     taskfile: tasks/Taskfile.cli.yml
     dir: .
     optional: true
+tasks:
+  ensure-vars:
+    desc: "Ensure variables file exists and export variables"
+    silent: true
+    cmds:
+      - test -f {{.VARS_FILE}} || (echo "Create {{.VARS_FILE}} with required variables" && exit 1)
+      - |
+        export $(grep -v '^#' {{.VARS_FILE}} | xargs -I{} echo {})
+
