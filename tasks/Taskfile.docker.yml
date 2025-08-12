@@ -18,7 +18,7 @@ tasks:
       - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
           -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} /usr/local/bin/scripts/create.sh
 
@@ -30,7 +30,7 @@ tasks:
       - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
           -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} /usr/local/bin/scripts/destroy.sh
 
@@ -42,7 +42,7 @@ tasks:
       - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
           -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} /usr/local/bin/scripts/start.sh
 
@@ -54,7 +54,7 @@ tasks:
       - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
           -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} /usr/local/bin/scripts/stop.sh
 
@@ -66,7 +66,7 @@ tasks:
       - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
-          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
+          -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
           -w /work/infra/${CLOUD:-aws} \
           {{.IMAGE_NAME}} /usr/local/bin/scripts/status.sh
 
