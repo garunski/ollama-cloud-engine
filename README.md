@@ -136,43 +136,39 @@ gcloud config set project your-project-id
 
 ### Option A: Docker Workflow
 
-1. **Create configuration file**
+1. **Set up authentication**
    ```bash
-   # vars.env
-    CLOUD=aws                                                     # aws | gcp
-    TF_VAR_tailscale_auth_key=tskey-auth-xxx...                   # required
-    TF_VAR_model_choice=codellama:7b-code                         # required
-    TF_VAR_instance_name=Ollama-LLM-Server                        # optional
-    TF_VAR_enable_debug=false                                     # optional
-
-    # If CLOUD=aws
-    TF_VAR_aws_region=us-east-1                                   # optional
-    TF_VAR_aws_profile=default                                     # optional
-    TF_VAR_custom_ami_id=ami-xxxxxxxxxxxxxxxxx                     # optional
-
-    # If CLOUD=gcp
-    TF_VAR_gcp_project=your-project-id                             # required for GCP
-    TF_VAR_gcp_region=us-central1                                  # optional
-    TF_VAR_gcp_zone=us-central1-a                                  # optional
+   # For AWS
+   aws configure --profile default
+   
+   # For GCP  
+   gcloud auth application-default login
+   gcloud config set project your-project-id
    ```
 
-2. **Deploy infrastructure**
+2. **Create configuration file**
    ```bash
-    task docker:create   # uses CLOUD from vars.env; docker mounts .gcp/creds.json automatically
+   # Copy the template and customize
+   cp vars.env.template vars.env
+   # Edit vars.env with your values (see Configuration section below)
    ```
 
-3. **Manage your deployment**
-   No cloud CLIs or extra commands needed; tasks read `vars.env` and handle everything.
+3. **Deploy infrastructure**
    ```bash
-     # Status (reads CLOUD from vars.env)
-     task cli:status
+   task docker:create   # Reads CLOUD from vars.env, auto-mounts credentials
+   ```
 
-     # Start/stop
-    task cli:start
-    task cli:stop
+4. **Manage your deployment**
+   ```bash
+   # Check status
+   task docker:status
 
-    # Destroy when done
-    task docker:destroy
+   # Start/stop (cost management)
+   task docker:start
+   task docker:stop
+
+   # Destroy when done
+   task docker:destroy
    ```
 
 ### Option B: Local CLI Workflow
@@ -182,27 +178,47 @@ gcloud config set project your-project-id
    task cli:setup:mac
    ```
 
-2. **Set environment variables**
-    Put all values in vars.env; Task auto-loads it.
-    See Docker workflow step 1 for an example vars.env.
-
-3. **Deploy and manage**
+2. **Set up authentication**
    ```bash
-    # Deploy infrastructure
-    task cli:create   # uses CLOUD from vars.env
+   # For AWS
+   aws configure --profile default
+   
+   # For GCP
+   gcloud auth application-default login
+   gcloud config set project your-project-id
+   ```
 
-    # Manage deployment
-    task cli:status
-    task cli:start
-    task cli:stop
-    task cli:destroy
+3. **Create configuration file**
+   ```bash
+   # Copy the template and customize
+   cp vars.env.template vars.env
+   # Edit vars.env with your values (see Configuration section below)
+   ```
+
+4. **Deploy and manage**
+   ```bash
+   # Deploy infrastructure
+   task cli:create   # Uses CLOUD from vars.env
+
+   # Manage deployment
+   task cli:status
+   task cli:start
+   task cli:stop
+   task cli:destroy
    ```
 
 ## ⚙️ Configuration
 
 ### Environment Variables
 
-Create a `vars.env` file (Task auto-loads this). 
+Create a `vars.env` file in the project root (Task auto-loads this file automatically).
+
+**Template Example:**
+```bash
+# Copy and customize the template
+cp vars.env.template vars.env
+# Edit vars.env with your specific values
+```
 
 **Authentication Setup:**
 - **AWS**: Configure `~/.aws/credentials` with named profiles (default: `default`)
@@ -210,19 +226,44 @@ Create a `vars.env` file (Task auto-loads this).
 
 For Docker tasks, credential directories are automatically mounted into containers.
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `CLOUD` | **Yes** | `aws` | Target cloud: `aws` or `gcp` |
-| `TF_VAR_tailscale_auth_key` | **Yes** | - | Tailscale authentication key |
-| `TF_VAR_model_choice` | **Yes** | - | Ollama model to deploy (see [supported models](#supported-models)) |
-| `TF_VAR_instance_name` | No | `Ollama-LLM-Server` | Instance and Tailscale hostname |
-| `TF_VAR_enable_debug` | No | `false` | Enable debug logging for Ollama |
-| `TF_VAR_aws_region` | AWS only | `us-east-1` | AWS deployment region |
-| `TF_VAR_aws_profile` | AWS only | `default` | AWS profile name |
-| `TF_VAR_custom_ami_id` | AWS only | - | Override automatic GPU DLAMI selection |
-| `TF_VAR_gcp_project` | GCP only | - | GCP project ID |
-| `TF_VAR_gcp_region` | GCP only | `us-central1` | GCP region |
-| `TF_VAR_gcp_zone` | GCP only | `us-central1-a` | GCP zone |
+#### **Complete Configuration Example:**
+```bash
+# vars.env - Customize for your deployment
+CLOUD=aws                                           # aws | gcp
+TF_VAR_tailscale_auth_key=tskey-auth-xxx...        # Get from Tailscale admin console
+TF_VAR_model_choice=codellama:7b-code              # See supported models below
+TF_VAR_instance_name=Ollama-LLM-Server             # Instance name and Tailscale hostname
+TF_VAR_enable_debug=false                          # Enable debug logging
+
+# AWS Configuration (when CLOUD=aws)
+TF_VAR_aws_profile=default                         # AWS profile name  
+TF_VAR_aws_region=us-east-1                        # AWS region
+# TF_VAR_custom_ami_id=ami-xxx                     # Optional: override AMI
+
+# GCP Configuration (when CLOUD=gcp)
+TF_VAR_gcp_project=your-project-id                 # GCP project ID
+TF_VAR_gcp_region=us-central1                      # GCP region
+TF_VAR_gcp_zone=us-central1-a                      # GCP zone
+```
+
+#### **Required Variables:**
+```bash
+CLOUD=aws                                    # aws or gcp
+TF_VAR_tailscale_auth_key=tskey-auth-xxx...  # Your Tailscale key
+TF_VAR_model_choice=codellama:7b-code        # Model to deploy
+```
+
+#### **Optional Variables (with defaults):**
+```bash
+TF_VAR_instance_name=Ollama-LLM-Server       # Instance name
+TF_VAR_enable_debug=false                    # Debug logging
+TF_VAR_aws_profile=default                   # AWS profile (AWS only)
+TF_VAR_aws_region=us-east-1                  # AWS region (AWS only)
+TF_VAR_gcp_region=us-central1                # GCP region (GCP only)
+TF_VAR_gcp_zone=us-central1-a                # GCP zone (GCP only)
+# TF_VAR_gcp_project=                        # Uses gcloud default (GCP only)
+# TF_VAR_custom_ami_id=                      # Override AMI (AWS only)
+```
 
 ### Supported Models
 

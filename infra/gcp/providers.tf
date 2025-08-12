@@ -13,12 +13,12 @@ terraform {
 }
 
 provider "google" {
-  project = var.gcp_project
+  project = var.gcp_project  # Uses gcloud default project when null
   region  = var.gcp_region
 }
 
 provider "google-beta" {
-  project = var.gcp_project
+  project = var.gcp_project  # Uses gcloud default project when null
   region  = var.gcp_region
 }
 

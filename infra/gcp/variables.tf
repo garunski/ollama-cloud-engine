@@ -1,6 +1,7 @@
 variable "gcp_project" {
-  description = "GCP project ID"
+  description = "GCP project ID (uses gcloud default project if not specified)"
   type        = string
+  default     = null
 }
 
 variable "gcp_region" {
