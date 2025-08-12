@@ -84,6 +84,7 @@ graph TB
 **Required for all setups:**
 - [Task](https://taskfile.dev) (for task execution)
 - [Tailscale](https://tailscale.com) account and auth key
+- **Cloud authentication** (see [Authentication Setup](#authentication-setup) below)
 
 **Choose one of the following:**
 
@@ -99,6 +100,25 @@ graph TB
 
 - AWS: For G-family GPUs you need vCPU quota in the EC2 quota "Running On-Demand G and VT instances" for your target region. Minimum: 4–8 vCPUs depending on instance.
 - GCP: Enable Compute Engine API and request GPU quota in your chosen region/zone (e.g., T4/A100 availability varies by zone).
+
+### Authentication Setup
+
+**AWS Setup:**
+```bash
+# Configure AWS credentials (if not already done)
+aws configure --profile default
+# OR use existing named profile
+export AWS_PROFILE=your-profile-name
+```
+
+**GCP Setup:**
+```bash
+# Set up Application Default Credentials
+gcloud auth application-default login
+
+# Set your default project
+gcloud config set project your-project-id
+```
 
 #### Getting a Tailscale Auth Key
 
@@ -182,7 +202,13 @@ graph TB
 
 ### Environment Variables
 
-Create a `vars.env` file (Task auto-loads this). For docker tasks on GCP, run `gcloud auth application-default login` once; the tasks mount `~/.config/gcloud` into the container so the provider uses ADC. No credential path variables are needed.
+Create a `vars.env` file (Task auto-loads this). 
+
+**Authentication Setup:**
+- **AWS**: Configure `~/.aws/credentials` with named profiles (default: `default`)
+- **GCP**: Run `gcloud auth application-default login` once to set up ADC (Application Default Credentials)
+
+For Docker tasks, credential directories are automatically mounted into containers.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
