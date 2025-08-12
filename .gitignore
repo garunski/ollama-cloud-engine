@@ -1,3 +1,5 @@
+# If you keep a repo-local copy instead of home-dir
+.gcp/creds.json
 .terraform/
 .terraform.lock.hcl
 *.tfstate

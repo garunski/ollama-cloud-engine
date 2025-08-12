@@ -7,8 +7,8 @@ locals {
     "deepseek-coder:6.7b-base"           = { machine = "n1-standard-8",  gpu_type = "nvidia-tesla-t4", gpu_count = 1 }
     "llama3:8b-instruct-q5_1"            = { machine = "n1-standard-8",  gpu_type = null,               gpu_count = 0 }
     "codellama:13b-code"                 = { machine = "n1-standard-16", gpu_type = "nvidia-tesla-t4", gpu_count = 1 }
-    "qwen2.5-coder:32b"                  = { machine = "a2-highgpu-1g",  gpu_type = "nvidia-tesla-a100", gpu_count = 1 }
-    "codellama:34b-code"                 = { machine = "a2-highgpu-1g",  gpu_type = "nvidia-tesla-a100", gpu_count = 1 }
+    "qwen2.5-coder:32b"                  = { machine = "a2-highgpu-1g",  gpu_type = null, gpu_count = 0 }
+    "codellama:34b-code"                 = { machine = "a2-highgpu-1g",  gpu_type = null, gpu_count = 0 }
   }
 
   model_volume_gb_map = {

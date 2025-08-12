@@ -15,59 +15,59 @@ tasks:
     silent: true
     cmds:
       - task: build
-      - task: :ensure-vars
-      - docker run --rm \
-          -e CLOUD \
-          -e GOOGLE_APPLICATION_CREDENTIALS \
-          -e AWS_PROFILE \
+      - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
           -w /work/infra/${CLOUD:-aws} \
-          {{.IMAGE_NAME}} scripts/create.sh
+          {{.IMAGE_NAME}} /usr/local/bin/scripts/create.sh
 
   destroy:
     desc: "Destroy using the tools image"
     silent: true
     cmds:
       - task: build
-      - task: :ensure-vars
-      - docker run --rm \
-          -e CLOUD \
-          -e GOOGLE_APPLICATION_CREDENTIALS \
-          -e AWS_PROFILE \
+      - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
           -w /work/infra/${CLOUD:-aws} \
-          {{.IMAGE_NAME}} scripts/destroy.sh
+          {{.IMAGE_NAME}} /usr/local/bin/scripts/destroy.sh
 
   start:
     desc: "Start the instance if stopped"
     silent: true
     cmds:
       - task: build
-      - task: :ensure-vars
-      - docker run --rm \
-          -e CLOUD \
-          -e GOOGLE_APPLICATION_CREDENTIALS \
-          -e AWS_PROFILE \
+      - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
           -w /work/infra/${CLOUD:-aws} \
-          {{.IMAGE_NAME}} scripts/start.sh
+          {{.IMAGE_NAME}} /usr/local/bin/scripts/start.sh
 
   stop:
     desc: "Stop the instance if running"
     silent: true
     cmds:
       - task: build
-      - task: :ensure-vars
-      - docker run --rm \
-          -e CLOUD \
-          -e GOOGLE_APPLICATION_CREDENTIALS \
-          -e AWS_PROFILE \
+      - docker run --rm --env-file vars.env \
           -v "$PWD:/work" \
           -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
           -w /work/infra/${CLOUD:-aws} \
-          {{.IMAGE_NAME}} scripts/stop.sh
+          {{.IMAGE_NAME}} /usr/local/bin/scripts/stop.sh
+
+  status:
+    desc: "Show instance status using the tools image"
+    silent: true
+    cmds:
+      - task: build
+      - docker run --rm --env-file vars.env \
+          -v "$PWD:/work" \
+          -v "$HOME/.aws:/root/.aws:ro" \
+          -v "$HOME/.gcp/creds.json:/work/.gcp/creds.json:ro" \
+          -w /work/infra/${CLOUD:-aws} \
+          {{.IMAGE_NAME}} /usr/local/bin/scripts/status.sh
 
 

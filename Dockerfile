@@ -11,11 +11,13 @@ WORKDIR /work
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        ca-certificates curl unzip gnupg lsb-release bash git jq \
-       tailscale \
     && rm -rf /var/lib/apt/lists/*
 
-# Install OpenTofu
-RUN curl -fsSL https://get.opentofu.org/install-opentofu.sh | TOFU_VERSION=${TOFU_VERSION} sh -
+# Install OpenTofu via APT repository
+RUN curl -fsSL https://packages.opentofu.org/opentofu/tofu/gpgkey | gpg --dearmor -o /usr/share/keyrings/opentofu-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/opentofu-archive-keyring.gpg] https://packages.opentofu.org/opentofu/tofu/any/ any main" > /etc/apt/sources.list.d/opentofu.list \
+    && apt-get update \
+    && apt-get install -y tofu
 
 # Install Infracost
 RUN curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
@@ -54,6 +56,13 @@ RUN cat > /usr/local/bin/scripts/stop.sh <<'EOS'
 #!/usr/bin/env bash
 set -euo pipefail
 tofu apply -auto-approve -var desired_state=stopped
+EOS
+
+# Script: status
+RUN cat > /usr/local/bin/scripts/status.sh <<'EOS'
+#!/usr/bin/env bash
+set -euo pipefail
+tofu output -raw instance_status 2>/dev/null || echo unknown
 EOS
 
 RUN chmod +x /usr/local/bin/scripts/*.sh

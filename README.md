@@ -131,6 +131,7 @@ graph TB
     TF_VAR_custom_ami_id=ami-xxxxxxxxxxxxxxxxx                     # optional
 
     # If CLOUD=gcp
+    TF_VAR_gcp_credentials_path=/work/.gcp/creds.json               # required for docker tasks on GCP
     TF_VAR_gcp_project=your-project-id                             # required for GCP
     TF_VAR_gcp_region=us-central1                                  # optional
     TF_VAR_gcp_zone=us-central1-a                                  # optional
@@ -138,7 +139,7 @@ graph TB
 
 2. **Deploy infrastructure**
    ```bash
-    task docker:create   # uses CLOUD from vars.env
+    task docker:create   # uses CLOUD from vars.env; docker mounts .gcp/creds.json automatically
    ```
 
 3. **Manage your deployment**
@@ -182,7 +183,7 @@ graph TB
 
 ### Environment Variables
 
-Create a `vars.env` file (Task auto-loads this):
+Create a `vars.env` file (Task auto-loads this). For docker tasks on GCP, set `TF_VAR_gcp_credentials_path=/work/.gcp/creds.json` and place your service account at `~/.gcp/creds.json` (the task mounts it into the container). Alternatively, you can store it at `.gcp/creds.json` in the repo (gitignored).
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|

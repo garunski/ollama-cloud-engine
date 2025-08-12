@@ -15,6 +15,11 @@ variable "gcp_zone" {
   default     = "us-central1-a"
 }
 
+variable "gcp_credentials_path" {
+  description = "Absolute path (inside execution environment) to the GCP service account JSON file"
+  type        = string
+}
+
 variable "instance_name" {
   description = "Instance name for the Ollama server"
   type        = string

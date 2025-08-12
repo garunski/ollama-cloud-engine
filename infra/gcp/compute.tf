@@ -75,6 +75,7 @@ resource "google_compute_disk" "root" {
 }
 
 resource "google_compute_instance" "ollama" {
+  provider     = google-beta
   name         = var.instance_name
   machine_type = local.selected_machine_type
   zone         = var.gcp_zone
