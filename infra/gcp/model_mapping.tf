@@ -23,9 +23,9 @@ locals {
 
   _sel = lookup(local.model_machine_map, var.model_choice)
 
-  selected_machine_type  = _sel.machine
-  selected_gpu_type      = _sel.gpu_type
-  selected_gpu_count     = _sel.gpu_count
+  selected_machine_type  = local._sel.machine
+  selected_gpu_type      = local._sel.gpu_type
+  selected_gpu_count     = local._sel.gpu_count
   selected_volume_size_gb = lookup(local.model_volume_gb_map, var.model_choice)
 }
 

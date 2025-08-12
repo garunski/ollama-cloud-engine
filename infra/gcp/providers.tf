@@ -24,7 +24,6 @@ provider "google-beta" {
 
 # Ensure required APIs are enabled
 resource "google_project_service" "compute" {
-  project = var.gcp_project
   service = "compute.googleapis.com"
 }
 
