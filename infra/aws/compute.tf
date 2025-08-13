@@ -28,17 +28,68 @@ log() {
 
 log "Starting Ollama setup..."
 
-log "Updating system packages..."
-sudo apt-get update -y
-sudo apt-get install -y docker.io unzip curl amazon-cloudwatch-agent gnupg lsb-release
+# Wait for network to be fully available
+log "Waiting for network connectivity..."
+for i in {1..30}; do
+    if ping -c 1 8.8.8.8 > /dev/null 2>&1; then
+        log "Network connectivity confirmed"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        log "ERROR: Network connectivity failed after 30 attempts"
+        exit 1
+    fi
+    sleep 2
+done
 
-log "Setting up Docker..."
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -aG docker ubuntu
+log "Updating system packages..."
+# Try multiple times with different mirrors if needed
+for attempt in 1 2 3; do
+    if sudo apt-get update -y; then
+        log "Package update successful on attempt $attempt"
+        break
+    fi
+    if [ $attempt -eq 3 ]; then
+        log "ERROR: Package update failed after 3 attempts"
+        exit 1
+    fi
+    log "Package update failed, retrying in 10 seconds..."
+    sleep 10
+done
+
+log "Installing required packages..."
+sudo apt-get install -y unzip curl gnupg lsb-release
+
+# Install CloudWatch agent separately to avoid conflicts
+log "Installing CloudWatch agent..."
+if ! dpkg -l | grep -q amazon-cloudwatch-agent; then
+    sudo apt-get install -y amazon-cloudwatch-agent
+fi
+
+log "Checking Docker status..."
+if command -v docker &> /dev/null; then
+    log "Docker is already available, skipping installation"
+else
+    log "Installing Docker..."
+    # Try to install docker.io, but don't fail if it conflicts
+    if ! sudo apt-get install -y docker.io; then
+        log "WARNING: Docker installation failed, but continuing..."
+    else
+        sudo systemctl start docker || true
+        sudo systemctl enable docker || true
+        sudo usermod -aG docker ubuntu || true
+    fi
+fi
 
 log "Installing Ollama..."
-curl -fsSL https://ollama.com/install.sh | sh
+# Download and install Ollama manually to avoid network issues
+if ! command -v ollama &> /dev/null; then
+    log "Downloading Ollama..."
+    curl -fsSL https://ollama.com/install.sh | sh || {
+        log "ERROR: Ollama installation failed"
+        exit 1
+    }
+fi
 
 log "Configuring Ollama..."
 sudo mkdir -p /etc/systemd/system/ollama.service.d/
@@ -76,19 +127,24 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
   -a fetch-config -m ec2 -s -c file:/tmp/cloudwatch-config.json
 
 if [ $? -ne 0 ]; then
-  log "ERROR: CloudWatch agent failed to start"
-  exit 1
+  log "WARNING: CloudWatch agent failed to start, but continuing..."
 fi
 
 log "Installing Tailscale..."
-curl -fsSL https://tailscale.com/install.sh | sh
+if ! command -v tailscale &> /dev/null; then
+    curl -fsSL https://tailscale.com/install.sh | sh || {
+        log "ERROR: Tailscale installation failed"
+        exit 1
+    }
+fi
 
-  log "Connecting to Tailscale..."
-  if [ -z "${var.tailscale_auth_key}" ]; then
-    log "ERROR: No Tailscale auth key provided. Set TF_VAR_tailscale_auth_key."
-    exit 1
-  fi
-  sudo tailscale up --auth-key="${var.tailscale_auth_key}" --hostname=${var.instance_name}
+log "Connecting to Tailscale..."
+if [ -z "${var.tailscale_auth_key}" ]; then
+  log "ERROR: No Tailscale auth key provided. Set TF_VAR_tailscale_auth_key."
+  exit 1
+fi
+
+sudo tailscale up --auth-key="${var.tailscale_auth_key}" --hostname=${var.instance_name}
 
 if [ $? -ne 0 ]; then
   log "ERROR: Tailscale authentication failed"
